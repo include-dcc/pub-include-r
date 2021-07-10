@@ -1,0 +1,63 @@
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+name: R-CMD-check
+
+jobs:
+
+  test:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: r-lib/actions/setup-r@v1
+        with:
+          r-version: '4.0.2'
+
+      - uses: r-lib/actions/setup-pandoc@master
+
+      - name: Install dependencies
+        run: |
+          install.packages('remotes')
+          remotes::install_local(upgrade="never")
+        shell: Rscript {0}
+
+      # - name: Install Miniconda
+      #   run: |
+      #     Rscript -e "remotes::install_github('rstudio/reticulate')"
+      #     Rscript -e "reticulate::install_miniconda()"
+      # - name: Add Miniconda to .Rprofile on macOS
+      #   if: runner.os == 'macOS'
+      #   run: echo "options(reticulate.conda_binary = reticulate:::miniconda_conda())" >> .Rprofile
+
+      # - name: Install Python deps
+      #   run: |
+      #     Rscript -e "reticulate::py_discover_config()"
+      #     Rscript -e "reticulate::py_install(c('pandas', 'numpy', 'boto3', 'synapseclient'), pip = TRUE)"
+
+      # - name: Setup Synapse config file for testing
+      #   if: runner.os != 'Windows'
+      #   run: |
+      #     OUTPUT_FILE=~/.synapseConfig
+      #     cat > "$OUTPUT_FILE" << EOM
+      #     [authentication]
+      #     username = "${{ secrets.SYNAPSE_USER }}"
+      #     apikey = "${{ secrets.SYNAPSE_APIKEY}}"
+      #     EOM
+      #     chmod +x "$OUTPUT_FILE"
+
+      - name: Check
+        run: rcmdcheck::rcmdcheck(args = "--no-manual", error_on = "warning", check_dir = "check")
+        shell: Rscript {0}
+
+      - name: Upload check results
+        if: failure()
+        uses: actions/upload-artifact@master
+        with:
+          name: ${{ runner.os }}-r${{ matrix.config.r }}-results
+          path: check

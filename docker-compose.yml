@@ -1,0 +1,11 @@
+version: "3.8"
+
+services:
+
+  shiny:
+    image: include-dcc/include-shiny-template
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"

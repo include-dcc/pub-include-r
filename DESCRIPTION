@@ -1,0 +1,20 @@
+Package: includeshinytemplate
+Title: INCLUDE Shiny Template
+Version: 0.0.0.9000
+Authors@R: person('Thomas', 'Yu', email = 'thomas.yu@sagebase.org', role = c('cre', 'aut'))
+Description: This is an hello world shiny application for INCLUDE.
+License: What license is it under?
+Imports: 
+    config,
+    golem,
+    shiny,
+    processx,
+    attempt,
+    DT,
+    glue,
+    htmltools
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.1.1
+Suggests: 
+    testthat
