@@ -3,7 +3,7 @@ version: "3.8"
 services:
 
   shiny:
-    image: include-dcc/include-shiny-template
+    image: include-dcc/pub-include-r
     build:
       context: .
       dockerfile: Dockerfile

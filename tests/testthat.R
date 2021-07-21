@@ -1,4 +1,4 @@
 library(testthat)
-library(includeshinytemplate)
+library(pubincluder)
 
-test_check("includeshinytemplate")
+test_check("pubincluder")
