@@ -5,7 +5,7 @@
 #' 
 #' @noRd
 app_sys <- function(...){
-  system.file(..., package = "includeshinytemplate")
+  system.file(..., package = "pubincluder")
 }
 
 
