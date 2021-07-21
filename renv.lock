@@ -268,14 +268,6 @@
       "Repository": "CRAN",
       "Hash": "a525aba14184fec243f9eaec62fbed43"
     },
-    "includeshinytemplate": {
-      "Package": "includeshinytemplate",
-      "Version": "0.0.0.9000",
-      "Source": "Local",
-      "RemoteType": "local",
-      "RemoteUrl": "/Users/tyu/sage/include-shiny-template",
-      "Hash": "f57676bfd4feaa18bb68af5fda6febee"
-    },
     "ini": {
       "Package": "ini",
       "Version": "0.3.1",
