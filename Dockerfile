@@ -21,4 +21,4 @@ RUN R -e 'install.packages("remotes")'
 RUN R -e 'remotes::install_github("r-lib/remotes", ref = "97bbf81")'
 RUN R -e 'remotes::install_local(upgrade="never")'
 EXPOSE 80
-CMD R -e "options('shiny.port'=80,shiny.host='0.0.0.0');includeshinytemplate::run_app()"
+CMD R -e "options('shiny.port'=80,shiny.host='0.0.0.0');pubincluder::run_app()"
