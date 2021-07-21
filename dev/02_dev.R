@@ -43,7 +43,7 @@ usethis::use_test( "app" )
 # Documentation
 
 ## Vignette ----
-usethis::use_vignette("includeshinytemplate")
+usethis::use_vignette("pubincluder")
 devtools::build_vignettes()
 
 ## Code coverage ----
