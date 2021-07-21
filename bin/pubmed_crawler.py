@@ -4,7 +4,6 @@ author: nasim.sanati
 author: milen.nikolov
 author: verena.chung
 """
-
 import os
 import re
 import argparse
@@ -26,7 +25,6 @@ def login():
     Returns:
         syn: Synapse object
     """
-
     try:
         syn = synapseclient.login(silent=True)
     except Exception:
@@ -56,6 +54,9 @@ def get_args():
     parser.add_argument("-t", "--table_id",
                         type=str,
                         help="Current Synapse table holding PubMed info.")
+    parser.add_argument("-f", "--table_file",
+                        type=str,
+                        help="Local file table holding PubMed info.")
     parser.add_argument("-o", "--output",
                         type=str, default="publications_"
                         + datetime.today().strftime('%m-%d-%Y'),
@@ -92,16 +93,15 @@ def get_grants(df):
     print(f"Querying for grant numbers...", end="")
     grants = set(df.grantNumber.dropna())
     print(f"{len(grants)} found\n")
-    return grants
+    return list(sorted(grants))
 
 
-def get_pmids(grants):
+def get_pmids(grants, year_start=2018, year_end=2021):
     """Get list of PubMed IDs using grant numbers as search param.
 
     Returns:
         set: PubMed IDs
     """
-
     print("Getting PMIDs from NCBI...")
     all_pmids = set()
 
@@ -110,6 +110,7 @@ def get_pmids(grants):
     for grant in grants:
         print(f"  {count:02d}. Grant number {grant}...", end="")
         handle = Entrez.esearch(db="pubmed", term=grant,
+                                datetype="pdat", mindate=year_start, maxdate=year_end,
                                 retmax=1_000_000, retmode="xml", sort="relevance")
         pmids = Entrez.read(handle).get('IdList')
         handle.close()
@@ -122,7 +123,6 @@ def get_pmids(grants):
 
 def parse_header(header):
     """Parse header div for pub. title, authors journal, year, and doi."""
-
     # TITLE
     title = header.find('h1').text.strip()
 
@@ -138,17 +138,30 @@ def parse_header(header):
     doi = doi_cit.text.strip().lstrip("doi: ").rstrip(".") if doi_cit else ""
 
     # AUTHORS
-    authors = [a.find('a').text for a in header.find_all(
+    authors = [parse_author(a) for a in header.find_all(
         'span', attrs={'class': "authors-list-item"})]
+    authors = [a for a in authors if a]
 
     return (title, journal, year, doi, authors)
 
 
+def parse_author(item):
+    """Parse author name from HTML 'author-list-item"""
+    try:
+        author = item.find('a', attrs={'class': "full-name"}).text
+    except AttributeError:
+        author = item.find('span', attrs={'class': "full-name"}).text
+    return author
+
+
 def parse_grant(grant):
     """Parse for grant number from grant annotation."""
-
-    grant_info = re.search(r"(CA\d+)[ /-]", grant, re.I)
-    return grant_info.group(1).upper()
+    if len(grant):
+        grant = re.sub(r'RO', 'R0', grant)
+        grant_info = re.search(r"([A-Z][A-Z](\s|-)*\d{3,})[ /-]", grant, re.I)
+        if grant_info is not None:
+            grant_number = grant_info.group(1).upper()
+            return re.sub(r'(\s|-)', '', grant_number)
 
 
 def get_related_info(pmid):
@@ -160,7 +173,6 @@ def get_related_info(pmid):
     Returns:
         dict: XML results for GEO, SRA, and dbGaP
     """
-
     handle = Entrez.elink(dbfrom="pubmed", db="gds,sra,gap", id=pmid,
                           remode="xml")
     results = Entrez.read(handle)[0].get('LinkSetDb')
@@ -181,7 +193,6 @@ def get_related_info(pmid):
 
 def parse_geo(info):
     """Parse and return GSE IDs."""
-
     gse_ids = []
     if info:
         tags = info.find_all('item', attrs={'name': "GSE"})
@@ -204,7 +215,6 @@ def parse_sra(info):
 
 def parse_dbgap(info):
     """Parse and return study IDs."""
-
     gap_ids = []
     if info:
         tags = info.find_all('item', attrs={'name': "d_study_id"})
@@ -218,7 +228,6 @@ def make_urls(url, accessions):
     Returns:
         str: list of URLs
     """
-
     url_list = [url + accession for accession in list(accessions)]
     return ", ".join(url_list)
 
@@ -229,12 +238,11 @@ def scrape_info(pmids, curr_grants, grant_view):
     Returns:
         df: publications data
     """
-
     columns = ["doi", "journal", "pubMedId", "pubMedUrl",
                "publicationTitle", "publicationYear", "keywords",
-               "authors", "consortium", "grantId", "grantNumber",
+               "authors", "grantNumber",
                "gseAccns", "gseUrls", "srxAccns", "srxUrls",
-               "srpAccns", "srpUrls", "dpgapAccns", "dpgapUrls"]
+               "srpAccns", "srpUrls", "dbgapAccns", "dbgapUrls"]
 
     if not os.environ.get('PYTHONHTTPSVERIFY', '') \
             and getattr(ssl, '_create_unverified_context', None):
@@ -261,21 +269,16 @@ def scrape_info(pmids, curr_grants, grant_view):
             authors = ", ".join(authors)
 
             # GRANTS
-            grants = [g.text.strip() for g in soup.find(
-                'div', attrs={'id': "grants"}).find_all('a')]
-
-            # Filter out grant annotations not in consortia.
-            grants = {parse_grant(grant) for grant in grants
-                      if re.search(r"CA\d", grant, re.I)}
-            grants = list(filter(lambda x: x in curr_grants, grants))
-
-            # Nasim's note: match and get the grant center Synapse ID from
-            # its view table by grant number of this journal study.
-            grant_id = consortium = ""
-            if grants:
-                center = grant_view.loc[grant_view['grantNumber'].isin(grants)]
-                grant_id = ", ".join(list(set(center.grantId)))
-                consortium = ", ".join(list(set(center.consortium)))
+            try:
+                grants = [g.text.strip() for g in soup.find(
+                    'div', attrs={'id': "grants"}).find_all('a')]
+    
+                # Filter out grant annotations not in consortia.
+                grants = {parse_grant(grant) for grant in grants}
+                          # if re.search(r"CA\d", grant, re.I)}
+                grants = list(filter(lambda x: x in curr_grants, grants))
+            except AttributeError:
+                grants = []
 
             # KEYWORDS
             abstract = soup.find(attrs={"id": "abstract"})
@@ -299,17 +302,22 @@ def scrape_info(pmids, curr_grants, grant_view):
             srp_url = make_urls(
                 "https://trace.ncbi.nlm.nih.gov/Traces/sra/?study=", srp)
 
-            dbgaps = parse_dbgap(related_info.get('gap'))
+            dbgap = parse_dbgap(related_info.get('gap'))
             dbgap_url = make_urls(
-                "https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=", dbgaps)
+                "https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=", 
+                dbgap
+            )
 
             row = pd.DataFrame(
                 [[doi, journal, pmid, url, title, year, keywords, authors,
-                  consortium, grant_id, ", ".join(grants), gse_ids, gse_url,
+                  grants, gse_ids, gse_url,
                   srx, srx_url, list(srp), srp_url, dbgaps, dbgap_url]],
                 columns=columns)
             table.append(row)
             session.close()
+            # Save table
+            tmp_tbl = pd.concat(table)
+            tmp_tbl.to_csv("pubs_tmp.tsv", index=False, sep="\t", encoding="utf-8")
 
             # Increment progress bar animation.
             progress()
@@ -319,7 +327,6 @@ def scrape_info(pmids, curr_grants, grant_view):
 
 def find_publications(syn, args):
     """Get list of publications based on grants of consortia."""
-
     grant_view = get_view(syn, args.grantview_id)
     grants = get_grants(grant_view)
     pmids = get_pmids(grants)
@@ -335,16 +342,25 @@ def find_publications(syn, args):
         pmids -= current_pmids
         print(f"  New publications found: {len(pmids)}\n")
 
+    # If user provided a table file, only scrap info from
+    # publications not already listed in the provided table.
+    if args.table_file:
+        print(f"Comparing with table {args.table_file}...")
+        current_publications = pd.read_csv(args.table_file, sep='\t')
+        current_pmids = {re.search(r"[/=](\d+)$", i).group(1)
+                         for i in list(current_publications.pubMedUrl)}
+        pmids -= current_pmids
+        print(f"  New publications found: {len(pmids)}\n")
+
     print(f"Pulling information from publications...")
 
-    table = scrape_info(pmids, grants, grant_view)
+    table = scrape_info(sorted(pmids), grants, grant_view)
     table.to_csv(args.output + ".tsv", index=False, sep="\t", encoding="utf-8")
     print("DONE")
 
 
 def main():
     """Main function."""
-
     syn = login()
     args = get_args()
 
