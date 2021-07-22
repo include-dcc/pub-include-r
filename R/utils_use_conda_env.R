@@ -5,4 +5,4 @@
 #' @return The return value, if any, from executing the utility.
 #'
 #' @noRd
-reticulate::use_condaenv("synapseclient", required = TRUE)
+# reticulate::use_condaenv("synapseclient", required = TRUE)

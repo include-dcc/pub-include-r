@@ -1,7 +1,7 @@
 #' update_grants_db 
 #'
 #' @description A utils function
-#'
+#' @importFrom magrittr %>%
 #' @return The return value, if any, from executing the utility.
 #'
 #' @noRd
