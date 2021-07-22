@@ -10,9 +10,22 @@ app_ui <- function(request) {
     golem_add_external_resources(),
     # List the first level UI elements here 
 
-    fluidPage(
-      mod_hello_world_ui("hello_world_1")
-    #   h1("includeshinytemplate"),
+    semantic.dashboard::dashboardPage(
+      semantic.dashboard::dashboardHeader(title = "INCLUDE Publications"),
+      semantic.dashboard::dashboardSidebar(
+        sidebarMenu(
+          menuItem("Home", tabName = "home"),
+          menuItem("Overview", tabName = "overview"),
+          menuItem("Sankey", tabName = "sankey")
+        )
+      ),
+      semantic.dashboard::dashboardBody(
+        golem_add_external_resources(),
+        semantic.dashboard::tabItems(
+          tabItem("overview", mod_pub_overview_ui("pub_overview_1")),
+          tabItem("sankey", mod_pub_sankey_ui("pub_sankey_1"))
+        )
+      )
     )
   )
 }
